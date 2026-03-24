@@ -1,4 +1,4 @@
 streamlit
 sympy
 groq
-duckduckgo-search
+ddgs
