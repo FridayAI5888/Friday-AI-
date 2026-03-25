@@ -251,4 +251,4 @@ if prompt := st.chat_input("Talk to FRIDAY..."):
     st.rerun()
 
 st.markdown("---")
-st.caption("Made with ❤️ by Shaurya Anjney • Powered by Groq + Streamlit")
+st.caption("Made with ❤️ by Shaurya Anjney • ")
