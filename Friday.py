@@ -12,7 +12,6 @@ import time
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 MODEL = "llama-3.1-8b-instant"
 
-# FIXED: Cache the Groq client so it doesn't reload every time
 @st.cache_resource(show_spinner=False)
 def get_groq_client():
     if not GROQ_API_KEY:
@@ -129,6 +128,14 @@ def memory_response(key, base_answer):
 
 # ---------------- LLM ----------------
 def ask_llm(user_prompt):
+    clean_history = []
+    for msg in st.session_state.history[-12:]:
+        if isinstance(msg, dict) and isinstance(msg.get("content"), str) and msg.get("content").strip():
+            clean_history.append({
+                "role": msg["role"],
+                "content": msg["content"].strip()
+            })
+    
     messages = [{
         "role": "system",
         "content": """
@@ -140,17 +147,21 @@ You are FRIDAY, a friendly intelligent AI assistant created by Shaurya Anjney.
 - If the user asks "who is shaurya" or "who is shaurya anjney", just say: "Shaurya Anjney is the brilliant creator behind my existence."
 """
     }]
-    # Keep only last 12 messages to prevent memory crash
-    messages.extend(st.session_state.history[-12:])
-    messages.append({"role": "user", "content": user_prompt})
     
-    response = client.chat.completions.create(
-        model=MODEL,
-        temperature=0.3,
-        max_tokens=600,
-        messages=messages
-    )
-    return response.choices[0].message.content.strip()
+    messages.extend(clean_history)
+    messages.append({"role": "user", "content": str(user_prompt).strip()})
+    
+    try:
+        response = client.chat.completions.create(
+            model=MODEL,
+            temperature=0.3,
+            max_tokens=600,
+            messages=messages
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        st.error(f"Groq API Error: {str(e)}")
+        return "Sorry, I'm having trouble connecting right now 😓 Please try again."
 
 # ---------------- MAIN LOGIC ----------------
 def assistant_reply(user_input):
@@ -202,17 +213,14 @@ def assistant_reply(user_input):
 # ====================== STREAMLIT UI ======================
 st.set_page_config(page_title="FRIDAY", page_icon="🤖", layout="wide")
 
-# AUTH CHECK
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if not st.session_state.logged_in:
     login_page()
     st.stop()
 
-# --------------------- PER-USER DATA (Strict Isolation) ---------------------
 current_user = st.session_state.current_user
 
-# Load user's chats from file every time to prevent mixing
 users = load_users()
 if current_user in users and "chats" in users[current_user]:
     st.session_state[f"chats_{current_user}"] = users[current_user]["chats"]
@@ -233,7 +241,6 @@ for key in [f"chats_{current_user}", f"history_{current_user}", f"conversation_l
         else:
             st.session_state[key] = False
 
-# Shortcuts
 st.session_state.chats = st.session_state[f"chats_{current_user}"]
 st.session_state.history = st.session_state[f"history_{current_user}"]
 st.session_state.conversation_log = st.session_state[f"conversation_log_{current_user}"]
@@ -251,7 +258,6 @@ with st.sidebar:
                 "history": st.session_state.history.copy(),
                 "conversation_log": st.session_state.conversation_log.copy()
             })
-            # Save immediately
             users = load_users()
             if current_user not in users:
                 users[current_user] = {"chats": []}
@@ -292,7 +298,6 @@ with st.sidebar:
                 if st.button("🗑", key=f"del_{i}"):
                     st.session_state.confirm_delete = i
                     st.rerun()
-    # Edit Chat Name
     if "edit_chat_index" in st.session_state:
         i = st.session_state.edit_chat_index
         if 0 <= i < len(st.session_state.chats):
@@ -307,7 +312,6 @@ with st.sidebar:
                         st.session_state.manually_edited = {}
                     st.session_state.manually_edited[new_name] = True
                    
-                    # Save to file
                     users = load_users()
                     if current_user in users:
                         users[current_user]["chats"] = st.session_state.chats
@@ -339,7 +343,6 @@ with st.sidebar:
 # Main UI
 st.title("FRIDAY 🤖")
 
-# Chat name display
 name_placeholder = st.empty()
 if st.session_state.current_chat_name != "New Conversation":
     if st.session_state.get("manually_edited") and st.session_state.current_chat_name in st.session_state.get("manually_edited", {}):
@@ -370,7 +373,6 @@ if prompt := st.chat_input("Talk to FRIDAY..."):
         with st.spinner("Thinking..."):
             reply = assistant_reply(prompt)
            
-            # Chat Name Generation on 2nd message
             if (len(st.session_state.conversation_log) >= 2 and not st.session_state.name_finalized):
                 try:
                     context = " ".join(st.session_state.conversation_log[:4])
@@ -401,7 +403,6 @@ Conversation so far:
                 except:
                     pass
            
-            # Streaming
             placeholder = st.empty()
             full = ""
             for char in reply:
