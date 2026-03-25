@@ -124,7 +124,7 @@ def ask_llm(user_prompt):
         "content": """
 You are FRIDAY, a friendly intelligent AI assistant created by Shaurya Anjney.
 - Be natural, polite and helpful.
-- Add small emojis sometimes 🙂✨
+- Add small emojis sometimes 🙂
 - NEVER say the user repeated something unless you see the EXACT same message multiple times in the history above.
 - Do not hallucinate repetitions.
 - If the user asks "who is shaurya" or "who is shaurya anjney", just say: "Shaurya Anjney is the brilliant creator behind my existence."
@@ -228,18 +228,24 @@ st.session_state.name_finalized = st.session_state[f"name_finalized_{current_use
 with st.sidebar:
     st.title("💬 My Chats")
     if st.button("➕ New Chat", type="primary", use_container_width=True):
-        # Save current chat if it has content
         if st.session_state.history or st.session_state.conversation_log:
             st.session_state.chats.append({
                 "name": st.session_state.current_chat_name,
                 "history": st.session_state.history.copy(),
                 "conversation_log": st.session_state.conversation_log.copy()
             })
-        # FIXED: Clean reset for truly new chat
+
+        # FIXED RESET
+        st.session_state[f"history_{current_user}"] = []
+        st.session_state[f"conversation_log_{current_user}"] = []
+        st.session_state[f"current_chat_name_{current_user}"] = "New Conversation"
+        st.session_state[f"name_finalized_{current_user}"] = False
+
         st.session_state.history = []
         st.session_state.conversation_log = []
         st.session_state.current_chat_name = "New Conversation"
         st.session_state.name_finalized = False
+
         st.rerun()
 
     st.divider()
@@ -274,7 +280,6 @@ with st.sidebar:
 # Main UI
 st.title("FRIDAY 🤖")
 
-# FIXED: Chat name animation + updates only first 4 messages
 name_placeholder = st.empty()
 if st.session_state.current_chat_name != "New Conversation":
     displayed = ""
@@ -308,10 +313,11 @@ if prompt := st.chat_input("Talk to FRIDAY..."):
                 time.sleep(0.012)
             placeholder.markdown(full)
            
-            # Chat name logic - only first 4 messages, then stops (animation preserved)
+            # FIXED dynamic naming
             if len(st.session_state.conversation_log) <= 4 and not st.session_state.name_finalized:
                 try:
-                    topic_prompt = f"Create a short catchy 3-6 word title for this chat based on the main topic: {st.session_state.conversation_log[0]}"
+                    context = " ".join(st.session_state.conversation_log[:4])
+                    topic_prompt = f"Create a short catchy 3-6 word title for this chat based on this conversation: {context}"
                     name_resp = client.chat.completions.create(
                         model=MODEL, temperature=0.5, max_tokens=25,
                         messages=[{"role": "user", "content": topic_prompt}]
