@@ -137,7 +137,7 @@ def memory_response(key, base_answer):
 # ---------------- STRONGER LLM with SILENT API ROTATION ----------------
 def ask_llm(user_prompt):
     clean_history = []
-    for msg in st.session_state.history[-12:]:
+    for msg in st.session_state.history[-9:]:
         if isinstance(msg, dict) and isinstance(msg.get("content"), str) and msg.get("content").strip():
             clean_history.append({
                 "role": msg["role"],
