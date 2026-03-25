@@ -167,7 +167,7 @@ You are FRIDAY, a friendly intelligent AI assistant created by Shaurya Anjney.
             response = client.chat.completions.create(
                 model=MODEL,
                 temperature=0.3,
-                max_tokens=600,
+                max_tokens=250,
                 messages=messages
             )
             return response.choices[0].message.content.strip()
