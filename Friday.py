@@ -11,7 +11,16 @@ import time
 # ---------------- CONFIG ----------------
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 MODEL = "llama-3.1-8b-instant"
-client = Groq(api_key=GROQ_API_KEY)
+
+# FIXED: Cache the Groq client so it doesn't reload every time
+@st.cache_resource(show_spinner=False)
+def get_groq_client():
+    if not GROQ_API_KEY:
+        st.error("GROQ_API_KEY is not set!")
+        st.stop()
+    return Groq(api_key=GROQ_API_KEY)
+
+client = get_groq_client()
 
 # ---------------- USERS FILE ----------------
 USERS_FILE = "users.json"
@@ -131,9 +140,10 @@ You are FRIDAY, a friendly intelligent AI assistant created by Shaurya Anjney.
 - If the user asks "who is shaurya" or "who is shaurya anjney", just say: "Shaurya Anjney is the brilliant creator behind my existence."
 """
     }]
-    messages.extend(st.session_state.history[-8:])
+    # Keep only last 12 messages to prevent memory crash
+    messages.extend(st.session_state.history[-12:])
     messages.append({"role": "user", "content": user_prompt})
- 
+    
     response = client.chat.completions.create(
         model=MODEL,
         temperature=0.3,
@@ -166,7 +176,7 @@ def assistant_reply(user_input):
         st.session_state.history.append({"role": "user", "content": user_input})
         st.session_state.history.append({"role": "assistant", "content": reply})
         return reply
-    
+   
     for n in range(1, 8):
         if f"{n}{'st' if n==1 else 'nd' if n==2 else 'rd' if n==3 else 'th'} message" in text_lower or f"what was my {n}{'st' if n==1 else 'nd' if n==2 else 'rd' if n==3 else 'th'} message" in text_lower:
             if st.session_state.conversation_log and len(st.session_state.conversation_log) >= n:
@@ -177,10 +187,8 @@ def assistant_reply(user_input):
             st.session_state.history.append({"role": "user", "content": user_input})
             st.session_state.history.append({"role": "assistant", "content": reply})
             return reply
-
     st.session_state.history.append({"role": "user", "content": user_input})
     st.session_state.conversation_log.append(user_input)
-
     if needs_search(user_input):
         query = improve_query(user_input)
         results = web_search(query)
@@ -188,7 +196,6 @@ def assistant_reply(user_input):
         reply = ask_llm(prompt)
     else:
         reply = ask_llm(user_input)
-
     st.session_state.history.append({"role": "assistant", "content": reply})
     return reply
 
@@ -250,7 +257,7 @@ with st.sidebar:
                 users[current_user] = {"chats": []}
             users[current_user]["chats"] = st.session_state.chats
             save_users(users)
-        
+       
         st.session_state[f"history_{current_user}"] = []
         st.session_state[f"conversation_log_{current_user}"] = []
         st.session_state[f"current_chat_name_{current_user}"] = "New Conversation"
@@ -260,7 +267,6 @@ with st.sidebar:
         st.session_state.current_chat_name = "New Conversation"
         st.session_state.name_finalized = False
         st.rerun()
-
     st.divider()
     st.subheader("Previous Chats")
     if st.session_state.chats:
@@ -272,7 +278,7 @@ with st.sidebar:
                     st.session_state[f"conversation_log_{current_user}"] = chat["conversation_log"].copy()
                     st.session_state[f"current_chat_name_{current_user}"] = chat["name"]
                     st.session_state[f"name_finalized_{current_user}"] = True
-                    
+                   
                     st.session_state.history = chat["history"].copy()
                     st.session_state.conversation_log = chat["conversation_log"].copy()
                     st.session_state.current_chat_name = chat["name"]
@@ -286,8 +292,7 @@ with st.sidebar:
                 if st.button("🗑", key=f"del_{i}"):
                     st.session_state.confirm_delete = i
                     st.rerun()
-
-    # Edit Chat Name (No animation after manual edit)
+    # Edit Chat Name
     if "edit_chat_index" in st.session_state:
         i = st.session_state.edit_chat_index
         if 0 <= i < len(st.session_state.chats):
@@ -301,20 +306,19 @@ with st.sidebar:
                     if "manually_edited" not in st.session_state:
                         st.session_state.manually_edited = {}
                     st.session_state.manually_edited[new_name] = True
-                    
+                   
                     # Save to file
                     users = load_users()
                     if current_user in users:
                         users[current_user]["chats"] = st.session_state.chats
                         save_users(users)
-                    
+                   
                     del st.session_state.edit_chat_index
                     st.rerun()
             with c2:
                 if st.button("Cancel"):
                     del st.session_state.edit_chat_index
                     st.rerun()
-
     if "confirm_delete" in st.session_state:
         st.warning("Delete this chat permanently?")
         c1, c2 = st.columns(2)
@@ -335,7 +339,7 @@ with st.sidebar:
 # Main UI
 st.title("FRIDAY 🤖")
 
-# Chat name display - NO animation if manually edited
+# Chat name display
 name_placeholder = st.empty()
 if st.session_state.current_chat_name != "New Conversation":
     if st.session_state.get("manually_edited") and st.session_state.current_chat_name in st.session_state.get("manually_edited", {}):
@@ -361,11 +365,11 @@ with chat_container:
 if prompt := st.chat_input("Talk to FRIDAY..."):
     with st.chat_message("user"):
         st.markdown(prompt)
-    
+   
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
             reply = assistant_reply(prompt)
-            
+           
             # Chat Name Generation on 2nd message
             if (len(st.session_state.conversation_log) >= 2 and not st.session_state.name_finalized):
                 try:
@@ -374,22 +378,21 @@ if prompt := st.chat_input("Talk to FRIDAY..."):
 Create a short, catchy, and natural 3-6 word title for this chat.
 Make it sound like a good conversation title (similar to ChatGPT or Claude).
 Return ONLY the title, nothing else. No quotes, no explanation.
-
 Conversation so far:
 {context}
 """
                     name_resp = client.chat.completions.create(
-                        model=MODEL, 
-                        temperature=0.75, 
+                        model=MODEL,
+                        temperature=0.75,
                         max_tokens=30,
                         messages=[{"role": "user", "content": topic_prompt}]
                     )
                     new_name = name_resp.choices[0].message.content.strip()
                     new_name = (new_name.replace('"', '').replace("'", "").strip())
-                    
+                   
                     if ":" in new_name and len(new_name.split(":")[0]) < 15:
                         new_name = new_name.split(":", 1)[1].strip()
-                    
+                   
                     if new_name and 5 <= len(new_name) <= 60:
                         st.session_state.current_chat_name = new_name
                         st.session_state.name_finalized = True
@@ -397,7 +400,7 @@ Conversation so far:
                         st.session_state[f"name_finalized_{current_user}"] = True
                 except:
                     pass
-            
+           
             # Streaming
             placeholder = st.empty()
             full = ""
@@ -406,7 +409,6 @@ Conversation so far:
                 placeholder.markdown(full + "▌")
                 time.sleep(0.012)
             placeholder.markdown(full)
-
     st.rerun()
 
 st.markdown("---")
