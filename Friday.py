@@ -10,7 +10,7 @@ import time
 
 # ---------------- CONFIG ----------------
 GROQ_API_KEYS = st.secrets.get("GROQ_API_KEYS", [os.getenv("GROQ_API_KEY")])
-MODEL = "llama-3.3-70b-versatile"
+MODEL = "openai/gpt-oss-safeguard-20b"
 
 # Stronger Silent API Rotation
 @st.cache_resource(show_spinner=False)
