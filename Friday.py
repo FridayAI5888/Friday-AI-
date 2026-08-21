@@ -10,7 +10,7 @@ import time
 
 # ---------------- CONFIG ----------------
 GROQ_API_KEYS = st.secrets.get("GROQ_API_KEYS", [os.getenv("GROQ_API_KEY")])
-MODEL = "qwen/qwen3.6-27b"
+MODEL = "groq/compound-mini"
 
 # Stronger Silent API Rotation
 @st.cache_resource(show_spinner=False)
