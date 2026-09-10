@@ -113,10 +113,10 @@ def improve_query(query):
 def web_search(query):
     try:
         with DDGS(timeout=20) as ddgs:
-            results = list(ddgs.text(query, max_results=12))
+            results = list(ddgs.text(query, max_results=8))
         cleaned = [f"{r.get('title', '')}: {r.get('body', '')}" for r in results
                    if r.get('title') and r.get('body')]
-        return "\n".join(cleaned[:8]) if cleaned else "No fresh results found."
+        return "\n".join(cleaned[:5]) if cleaned else "No fresh results found."
     except Exception as e:
         return f"Search failed: {str(e)}"
 
@@ -173,7 +173,7 @@ You are FRIDAY, a friendly intelligent AI assistant created by Shaurya Anjney.
             response = client.chat.completions.create(
                 model=MODEL,
                 temperature=0.3,
-                max_tokens=250,
+                max_tokens=170,
                 messages=messages
             )
             return response.choices[0].message.content.strip()
