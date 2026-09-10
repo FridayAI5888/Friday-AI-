@@ -10,7 +10,7 @@ import time
 
 # ---------------- CONFIG ----------------
 GROQ_API_KEYS = st.secrets.get("GROQ_API_KEYS", [os.getenv("GROQ_API_KEY")])
-MODEL = "qwen/qwen3-32"
+MODEL = "openai/gpt-oss-20b"
 
 # Stronger Silent API Rotation
 @st.cache_resource(show_spinner=False)
