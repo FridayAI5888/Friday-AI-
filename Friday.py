@@ -10,7 +10,7 @@ import time
 
 # ---------------- CONFIG ----------------
 GROQ_API_KEYS = st.secrets.get("GROQ_API_KEYS", [os.getenv("GROQ_API_KEY")])
-MODEL = "Llama 3.1 8B Instant"
+MODEL = "minimaxai/minimax-m2.7"
 
 # Stronger Silent API Rotation
 @st.cache_resource(show_spinner=False)
